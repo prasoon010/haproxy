@@ -1,0 +1,36 @@
+
+# tasks file for haproxy
+---
+
+- name: "Adding haproxy repository"
+  apt_repository:
+    repo: 'ppa:vbernat/haproxy-1.8'
+    state: present
+    filename: haproxy1.8
+  register: ha_repo
+
+- name: "update apt cache"
+  when: ha_repo.changed == true
+  apt:
+    update_cache: yes
+
+- name: "Installing haproxy"
+  apt:
+    name:
+      - haproxy
+    state: present
+
+- name: "Creating conf file"
+  template:
+    src: haproxy.j2
+    dest: "/etc/haproxy/haproxy.cfg"
+    owner: "root"
+    group: "root"
+  register: haconf
+
+- name: "Restarting haproxy service"
+  when: haconf.changed == true
+  service:
+    name: haproxy
+    state: restarted
+    enabled: true

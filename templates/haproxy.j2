@@ -1,0 +1,79 @@
+#### Haproxy config Start#########
+# Galera Cluster Fontend configuration
+frontend galera_cluster_frontend
+	bind *:3306
+	mode tcp
+	option tcplog
+	default_backend galera_cluster_backend
+# Galera Cluster Backend configuration
+backend galera_cluster_backend
+	mode tcp
+	option tcpka
+	balance leastconn
+	option mysql-check user haproxy
+	server {{hostname01}} {{node01}}:3306 check weight 1
+	server {{hostname02}} {{node02}}:3306 check weight 1
+	server {{hostname03}} {{node03}}:3306 check weight 1
+
+##timedb
+listen master
+        bind *:5432
+        mode tcp
+        maxconn 10000
+        option tcplog
+        #option httpchk
+        option httpchk OPTIONS /master
+        http-check expect status 200
+        default-server inter 3s fastinter 1s fall 3 rise 2 on-marked-down shutdown-sessions
+        server {{hostname01}} {{node01}}:5432 check port 8008
+        server {{hostname02}} {{node02}}:5432 check port 8008
+        server {{hostname03}} {{node03}}:5432 check port 8008
+
+
+
+
+
+# Redis Cluster Fontend configuration
+frontend redis-read
+    bind 0.0.0.0:6378
+    mode tcp
+    option tcplog
+    default_backend redis-online
+# Redis Cluster readonly Fontend configuration
+frontend redis-write
+    bind 0.0.0.0:6379
+    mode tcp
+    option tcplog
+    default_backend redis-primary
+
+
+# Redis Cluster readonly Backend configuration
+backend redis-online
+        mode tcp
+	balance roundrobin
+	option tcp-check
+
+#	tcp-check send AUTH\ tieloh9Oongoor\r\n
+#	tcp-check expect string +OK
+	tcp-check send PING\r\n
+	tcp-check expect string +PONG
+
+	server redis-01:{{node01}}:6379 {{node01}}:6379 maxconn 1024 check inter 1s
+	server redis-02:{{node02}}:6379 {{node02}}:6379 maxconn 1024 check inter 1s
+	server redis-03:{{node03}}:6379 {{node03}}:6379 maxconn 1024 check inter 1s
+# Redis Cluster Backend configuration
+backend redis-primary
+        mode tcp
+	balance first
+	option tcp-check
+
+#	tcp-check send AUTH\ tieloh9Oongoor\r\n
+#	tcp-check expect string +OK
+	tcp-check send info\ replication\r\n
+	tcp-check expect string role:master
+
+	server redis-01:{{node01}}:6379 {{node01}}:6379 maxconn 1024 check inter 1s
+	server redis-02:{{node02}}:6379 {{node02}}:6379 maxconn 1024 check inter 1s
+	server redis-03:{{node03}}:6379 {{node03}}:6379 maxconn 1024 check inter 1s
+
+#### Haproxy config END#########
